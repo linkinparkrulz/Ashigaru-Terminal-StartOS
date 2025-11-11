@@ -9,6 +9,10 @@ RUN apt-get update --allow-releaseinfo-change || apt-get update --allow-releasei
     chmod +x /usr/local/bin/yq && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# Add default config
+RUN mkdir -p /root/defaults/.ashigaru
+COPY root/defaults/.ashigaru/config /root/defaults/.ashigaru/config
+
 COPY ./docker_entrypoint.sh /usr/local/bin/docker_entrypoint.sh
 RUN chmod +x /usr/local/bin/docker_entrypoint.sh
 
