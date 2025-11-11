@@ -27,6 +27,7 @@ main:
   args: []
   mounts:
     main: /root
+    fulcrum: /mnt/fulcrum
   gpu-acceleration: false
 hardware-requirements:
   arch:
@@ -37,11 +38,22 @@ health-checks:
     name: Ashigaru Terminal User Interface
     success-message: Ready to be visited in a web browser (Read the Instructions First!)
     type: script
-config: ~
-properties: ~
+config:
+  get:
+    type: script
+  set:
+    type: script
+properties:
+  type: script
 volumes:
   main:
     type: data
+  fulcrum:
+    type: pointer
+    package-id: fulcrum
+    volume-id: main
+    path: /
+    readonly: true
 interfaces:
   main:
     name: User Interface
@@ -57,7 +69,14 @@ interfaces:
     protocols:
       - tcp
       - http
-dependencies: {}
+dependencies:
+  fulcrum:
+    version: ">=2.0.0"
+    critical: false
+    requirement:
+      type: "opt-in"
+      how: "Enable Fulcrum connection in the configuration settings to use a local Electrum server"
+    description: "Fulcrum Electrum server for connecting to the Bitcoin network"
 backup:
   create:
     type: docker
