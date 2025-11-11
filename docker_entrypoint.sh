@@ -41,13 +41,14 @@ if [ "$(yq e '.ashigaru.managesettings' /root/start9/config.yaml)" = "true" ]; t
   esac
 
   # Configure proxy
-  case "$(yq e '.ashigaru.proxy.type' /root/start9/config.yaml)" in
   "tor")
     echo "Configuring Ashigaru for Tor"
-    export EMBASSY_IP=$(ip -4 route list match 0/0 | awk '{print $3}')
     yq e -i '
       .useProxy = true |
-      .proxyServer = strenv(EMBASSY_IP) + ":9050"' -o=json /root/.ashigaru/config
+      .proxyServer = "embassy:9050"
+    ' -o=json /root/.ashigaru/config
+    ;;
+  case "$(yq e '.ashigaru.proxy.type' /root/start9/config.yaml)" in
     ;;
   "none")
     echo "Configuring Ashigaru for 'no proxy'"
