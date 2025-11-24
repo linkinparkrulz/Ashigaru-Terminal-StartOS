@@ -13,9 +13,10 @@ StartOS UI → getConfig.ts → setConfig.ts → /root/start9/config.yaml → do
 **File**: `scripts/procedures/getConfig.ts`
 - Defines the UI structure for configuration options
 - Shows these options in the StartOS "Config" section:
-  - `ashigaru.managesettings`: Boolean to enable/disable automatic config
-  - `ashigaru.server.type`: "fulcrum" or "public"
-  - `ashigaru.proxy.type`: "tor" or "none"
+  - `network.type`: "mainnet" or "testnet"
+  - `server.type`: "fulcrum" or "public"
+  - `proxy.type`: "tor" or "none"
+- Configuration is always applied automatically (no toggle needed)
 
 ### Step 2: Configuration Validation and Storage
 
@@ -42,7 +43,7 @@ compat.setConfig completed
 **File**: `docker_entrypoint.sh`
 - Runs every time the Ashigaru container starts
 - Reads configuration from `/root/start9/config.yaml`
-- Applies settings to `/root/.ashigaru/config` if `managesettings=true`
+- Always applies settings to `/root/.ashigaru/config` (no toggle needed)
 - Sets up socat proxy for fulcrum connections
 
 ## Debugging the Configuration Process
@@ -60,12 +61,12 @@ When you change settings in the StartOS UI:
 
 Expected content:
 ```yaml
-ashigaru:
-  managesettings: true
-  server:
-    type: fulcrum
-  proxy:
-    type: tor
+network:
+  type: mainnet
+server:
+  type: fulcrum
+proxy:
+  type: tor
 ```
 
 ### 2. Check Docker Container Initialization
@@ -93,21 +94,21 @@ Home directory: /root
 Checking for StartOS config file...
 ✓ StartOS config file found at /root/start9/config.yaml
 StartOS config contents:
-ashigaru:
-  managesettings: true
-  server:
-    type: fulcrum
-  proxy:
-    type: tor
+network:
+  type: mainnet
+server:
+  type: fulcrum
+proxy:
+  type: tor
 ```
 
 #### Configuration Management Check
 ```
-=== DEBUG: Configuration Management Check ===
-StartOS managesettings value: 'true'
+=== DEBUG: Configuration Management ===
 ✓ Applying Ashigaru configuration settings...
 
 === DEBUG: Raw StartOS Configuration Values ===
+Network type from StartOS: 'mainnet'
 Server type from StartOS: 'fulcrum'
 Proxy type from StartOS: 'tor'
 ```
@@ -155,11 +156,14 @@ tcp   LISTEN  0      128            127.0.0.1:50001       0.0.0.0:*    users:(("
 
 ## Common Issues and Solutions
 
-### Issue 1: "managesettings is not 'true'"
+### Issue 1: Configuration not applied
 
 **Symptoms**: Configuration changes in UI don't affect Ashigaru
-**Debug Output**: `✗ managesettings is not 'true' (value: 'false'), skipping configuration`
-**Solution**: Ensure "Apply settings on startup" is enabled in the StartOS UI
+**Debug Output**: `✗ yq is not working properly, using existing Ashigaru configuration`
+**Solution**: 
+1. Check if yq is installed and working in the container
+2. Verify the StartOS config file exists and has correct format
+3. Check container logs for any configuration errors
 
 ### Issue 2: StartOS config file not found
 
@@ -238,7 +242,7 @@ To apply the debugging changes:
    ```
 
 3. **Configure the service** in StartOS UI:
-   - Enable "Apply settings on startup"
+   - Set "Bitcoin Network" to "Mainnet (recommended)"
    - Set "Electrum Server" to "Fulcrum (recommended)"
    - Set "Use a proxy" to "Tor (recommended)"
 

@@ -1,17 +1,14 @@
 import { compat, types as T } from "../deps.ts";
 
 export interface AshigaruConfig extends T.Config {
-  ashigaru?: {
-    managesettings?: boolean;
-    network?: {
-      type?: "mainnet" | "testnet" | string;
-    };
-    server?: {
-      type?: "fulcrum" | "public" | string;
-    };
-    proxy?: {
-      type?: "tor" | "none" | string;
-    };
+  network?: {
+    type?: "mainnet" | "testnet" | string;
+  };
+  server?: {
+    type?: "fulcrum" | "public" | string;
+  };
+  proxy?: {
+    type?: "tor" | "none" | string;
   };
 }
 
@@ -20,10 +17,9 @@ export const setConfig: T.ExpectedExports.setConfig = async (
   effects: T.Effects,
   newConfig: AshigaruConfig,
 ) => {
-  const ash = newConfig?.ashigaru ?? {};
-  const netTypeRaw = ash?.network?.type;
-  const srvTypeRaw = ash?.server?.type;
-  const proxyTypeRaw = ash?.proxy?.type;
+  const netTypeRaw = newConfig?.network?.type;
+  const srvTypeRaw = newConfig?.server?.type;
+  const proxyTypeRaw = newConfig?.proxy?.type;
 
   const validNetworks = ["mainnet", "testnet"];
   const validServers = ["fulcrum", "public"];
@@ -45,15 +41,11 @@ export const setConfig: T.ExpectedExports.setConfig = async (
     throw new Error("Invalid Ashigaru proxy type: " + proxyType);
   }
 
-  const ashUpdated = {
-    ...ash,
+  const sanitizedConfig: AshigaruConfig = {
+    ...newConfig,
     network: { type: (netType as any) },
     server: { type: (srvType as any) },
     proxy: { type: (proxyType as any) },
-  };
-  const sanitizedConfig: AshigaruConfig = {
-    ...newConfig,
-    ashigaru: ashUpdated,
   };
 
   const finalDeps: { [key: string]: string[] } = {};

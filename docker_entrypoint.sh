@@ -81,33 +81,22 @@ cat /root/.ashigaru/config
 
 echo "=== DEBUG: Testing yq functionality ==="
 echo "test: value" | yq '.test'
-echo "Reading managesettings directly:"
-yq '.ashigaru.managesettings' /root/start9/config.yaml
+echo "Reading network type directly:"
+yq '.network.type' /root/start9/config.yaml
 echo "Raw output check complete"
 
-# Manage Ashigaru settings?
-echo "=== DEBUG: Configuration Management Check ==="
+# Apply Ashigaru configuration settings
+echo "=== DEBUG: Configuration Management ==="
 if [ -f /root/start9/config.yaml ]; then
   # Check if yq is working, otherwise use defaults
   if command -v yq >/dev/null 2>&1 && yq --version >/dev/null 2>&1; then
-    # Get managesettings value with better error handling
-    MANAGE_SETTINGS=$(yq '.ashigaru.managesettings' /root/start9/config.yaml 2>/dev/null || echo "null")
-    echo "StartOS managesettings value: '$MANAGE_SETTINGS'"
+    echo "✓ Applying Ashigaru configuration settings..."
     
-    # Handle case where managesettings is missing or null - default to true for backward compatibility
-    if [ "$MANAGE_SETTINGS" = "null" ] || [ -z "$MANAGE_SETTINGS" ]; then
-      echo "→ managesettings field is missing or null, defaulting to 'true' for backward compatibility"
-      MANAGE_SETTINGS="true"
-    fi
-    
-    if [ "$MANAGE_SETTINGS" = "true" ]; then
-      echo "✓ Applying Ashigaru configuration settings..."
-      
     # DEBUG: Show raw values from StartOS config
     echo "=== DEBUG: Raw StartOS Configuration Values ==="
-    NETWORK_TYPE=$(yq '.ashigaru.network.type' /root/start9/config.yaml 2>/dev/null || echo "null")
-    SERVER_TYPE=$(yq '.ashigaru.server.type' /root/start9/config.yaml 2>/dev/null || echo "null")
-    PROXY_TYPE=$(yq '.ashigaru.proxy.type' /root/start9/config.yaml 2>/dev/null || echo "null")
+    NETWORK_TYPE=$(yq '.network.type' /root/start9/config.yaml 2>/dev/null || echo "null")
+    SERVER_TYPE=$(yq '.server.type' /root/start9/config.yaml 2>/dev/null || echo "null")
+    PROXY_TYPE=$(yq '.proxy.type' /root/start9/config.yaml 2>/dev/null || echo "null")
     echo "Network type from StartOS: '$NETWORK_TYPE'"
     echo "Server type from StartOS: '$SERVER_TYPE'"
     echo "Proxy type from StartOS: '$PROXY_TYPE'"
@@ -128,40 +117,40 @@ if [ -f /root/start9/config.yaml ]; then
       PROXY_TYPE="tor"
     fi
       
-      # Configure Bitcoin network
-      echo "=== DEBUG: Bitcoin Network Configuration ==="
-      case "$NETWORK_TYPE" in
-      "testnet")
-        echo "→ Configuring Ashigaru for Testnet"
-        echo "Setting network to TESTNET"
-        # Update electrum server for testnet if using fulcrum
-        if [ "$SERVER_TYPE" = "fulcrum" ]; then
-          echo "Setting testnet fulcrum server to tcp://fulcrum.embassy:50001"
-          yq e -i '
-            .networkType = "TESTNET" |
-            .electrumServer = "tcp://fulcrum.embassy:50001"' -o=json /root/.ashigaru/config
-        fi
-        echo "✓ Testnet configuration applied"
-        ;;
-      "mainnet")
-        echo "→ Configuring Ashigaru for Mainnet"
-        echo "Setting network to MAINNET"
-        # Update electrum server for mainnet if using fulcrum
-        if [ "$SERVER_TYPE" = "fulcrum" ]; then
-          echo "Setting mainnet fulcrum server to tcp://fulcrum.embassy:50001"
-          yq e -i '
-            .networkType = "MAINNET" |
-            .electrumServer = "tcp://fulcrum.embassy:50001"' -o=json /root/.ashigaru/config
-        fi
-        echo "✓ Mainnet configuration applied"
-        ;;
-      *)
-        echo "✗ Unknown network type '$NETWORK_TYPE', defaulting to mainnet"
-        yq e -i '.networkType = "MAINNET"' -o=json /root/.ashigaru/config
-        ;;
-      esac
-      
-      # Configure electrum server
+    # Configure Bitcoin network
+    echo "=== DEBUG: Bitcoin Network Configuration ==="
+    case "$NETWORK_TYPE" in
+    "testnet")
+      echo "→ Configuring Ashigaru for Testnet"
+      echo "Setting network to TESTNET"
+      # Update electrum server for testnet if using fulcrum
+      if [ "$SERVER_TYPE" = "fulcrum" ]; then
+        echo "Setting testnet fulcrum server to tcp://fulcrum.embassy:50001"
+        yq e -i '
+          .networkType = "TESTNET" |
+          .electrumServer = "tcp://fulcrum.embassy:50001"' -o=json /root/.ashigaru/config
+      fi
+      echo "✓ Testnet configuration applied"
+      ;;
+    "mainnet")
+      echo "→ Configuring Ashigaru for Mainnet"
+      echo "Setting network to MAINNET"
+      # Update electrum server for mainnet if using fulcrum
+      if [ "$SERVER_TYPE" = "fulcrum" ]; then
+        echo "Setting mainnet fulcrum server to tcp://fulcrum.embassy:50001"
+        yq e -i '
+          .networkType = "MAINNET" |
+          .electrumServer = "tcp://fulcrum.embassy:50001"' -o=json /root/.ashigaru/config
+      fi
+      echo "✓ Mainnet configuration applied"
+      ;;
+    *)
+      echo "✗ Unknown network type '$NETWORK_TYPE', defaulting to mainnet"
+      yq e -i '.networkType = "MAINNET"' -o=json /root/.ashigaru/config
+      ;;
+    esac
+    
+    # Configure electrum server
     echo "=== DEBUG: Electrum Server Configuration ==="
     case "$SERVER_TYPE" in
     "fulcrum")
@@ -208,9 +197,6 @@ if [ -f /root/start9/config.yaml ]; then
       echo "✗ Unknown proxy type '$PROXY_TYPE', not configuring Ashigaru"
       ;;
     esac
-    else
-      echo "✗ managesettings is not 'true' (value: '$MANAGE_SETTINGS'), skipping configuration"
-    fi
   else
     echo "✗ yq is not working properly, using existing Ashigaru configuration"
     echo "→ Current configuration will be used as-is"
@@ -261,10 +247,10 @@ echo "→ Connection will be: Ashigaru → Tor Proxy → fulcrum.embassy:50001"
 
 echo "=== DEBUG: Pre-launch Summary ==="
 if command -v yq >/dev/null 2>&1 && yq --version >/dev/null 2>&1; then
-  echo "Configuration management: $([ -f /root/start9/config.yaml ] && yq '.ashigaru.managesettings' /root/start9/config.yaml || echo 'N/A')"
-  echo "Network type: $([ -f /root/start9/config.yaml ] && yq '.ashigaru.network.type' /root/start9/config.yaml || echo 'N/A')"
-  echo "Server type: $([ -f /root/start9/config.yaml ] && yq '.ashigaru.server.type' /root/start9/config.yaml || echo 'N/A')"
-  echo "Proxy type: $([ -f /root/start9/config.yaml ] && yq '.ashigaru.proxy.type' /root/start9/config.yaml || echo 'N/A')"
+  echo "Configuration management: Always enabled"
+  echo "Network type: $([ -f /root/start9/config.yaml ] && yq '.network.type' /root/start9/config.yaml || echo 'N/A')"
+  echo "Server type: $([ -f /root/start9/config.yaml ] && yq '.server.type' /root/start9/config.yaml || echo 'N/A')"
+  echo "Proxy type: $([ -f /root/start9/config.yaml ] && yq '.proxy.type' /root/start9/config.yaml || echo 'N/A')"
   echo "Final electrumServer setting: $(yq '.electrumServer' /root/.ashigaru/config)"
   echo "Final serverType setting: $(yq '.serverType' /root/.ashigaru/config)"
   echo "Final networkType setting: $(yq '.networkType' /root/.ashigaru/config)"
