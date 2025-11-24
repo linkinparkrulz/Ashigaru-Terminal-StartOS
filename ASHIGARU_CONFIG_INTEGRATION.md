@@ -50,7 +50,7 @@ Handles dependency management:
 
 A JSON file containing default Ashigaru Terminal settings:
 - Server type: `ELECTRUM_SERVER`
-- Electrum server: `tcp://fulcrum.embassy:50001`
+- Electrum server: `tcp://127.0.0.1:50001` (local socat proxy)
 - Proxy enabled by default
 - Theme: `DARK`
 - Various wallet and transaction settings
@@ -78,7 +78,7 @@ The entrypoint script orchestrates the configuration:
    case "$(yq e '.ashigaru.server.type' /root/start9/config.yaml)" in
    "fulcrum")
      yq e -i '.serverType = "ELECTRUM_SERVER" |
-              .electrumServer = "tcp://fulcrum.embassy:50001"' \
+              .electrumServer = "tcp://127.0.0.1:50001"' \
               -o=json /root/.ashigaru/config
      ;;
    "public")
@@ -88,7 +88,18 @@ The entrypoint script orchestrates the configuration:
    esac
    ```
 
-4. **Proxy Configuration**:
+4. **Socat Proxy Setup**:
+   ```bash
+   # Setup socat proxy for Fulcrum if selected
+   # Ashigaru will not use Tor for local addresses (127.0.0.1)
+   # This means we can connect straight to fulcrum and use Tor for everything else
+   if [ "$(yq e '.ashigaru.server.type' /root/start9/config.yaml)" = "fulcrum" ]; then
+     echo "Setting up socat proxy for Fulcrum..."
+     /usr/bin/socat tcp-l:50001,fork,reuseaddr,su=nobody,bind=127.0.0.1 tcp:fulcrum.embassy:50001 &
+   fi
+   ```
+
+5. **Proxy Configuration**:
    ```bash
    case "$(yq e '.ashigaru.proxy.type' /root/start9/config.yaml)" in
    "tor")
@@ -116,7 +127,9 @@ The entrypoint script orchestrates the configuration:
 When Fulcrum is selected:
 - The manifest.yaml defines Fulcrum as an optional dependency
 - setConfig.ts creates a runtime dependency requiring Fulcrum to be "synced"
-- The entrypoint configures the connection to `fulcrum.embassy:50001`
+- The entrypoint sets up a socat proxy: `127.0.0.1:50001` → `fulcrum.embassy:50001`
+- Ashigaru connects to the local proxy at `tcp://127.0.0.1:50001`
+- Local connections bypass Tor for better performance while external connections use Tor
 - Volume mount provides read-only access to Fulcrum data at `/mnt/fulcrum`
 
 ### Tor Proxy Integration

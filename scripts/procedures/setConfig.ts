@@ -1,12 +1,16 @@
-// This is where any configuration rules related to the configuration would go. These ensure that the user can only create a valid config.
-
 import { compat, types as T } from "../deps.ts";
 
-// Define a custom type for T.Config to include the 'server' property with a 'type' property
-interface AshigaruConfig extends T.Config {
+export interface AshigaruConfig extends T.Config {
   ashigaru?: {
+    managesettings?: boolean;
+    network?: {
+      type?: "mainnet" | "testnet" | string;
+    };
     server?: {
-      type?: string;
+      type?: "fulcrum" | "public" | string;
+    };
+    proxy?: {
+      type?: "tor" | "none" | string;
     };
   };
 }
@@ -16,9 +20,47 @@ export const setConfig: T.ExpectedExports.setConfig = async (
   effects: T.Effects,
   newConfig: AshigaruConfig,
 ) => {
-  const depsFulcrum: { [key: string]: string[] } = newConfig?.ashigaru?.server?.type === "fulcrum" ? { "fulcrum": ["synced"] } : {};
+  const ash = newConfig?.ashigaru ?? {};
+  const netTypeRaw = ash?.network?.type;
+  const srvTypeRaw = ash?.server?.type;
+  const proxyTypeRaw = ash?.proxy?.type;
 
-  return compat.setConfig(effects, newConfig, {
-    ...depsFulcrum,
-  });
+  const validNetworks = ["mainnet", "testnet"];
+  const validServers = ["fulcrum", "public"];
+  const validProxies = ["tor", "none"];
+
+  const netType = (netTypeRaw ?? "mainnet").toString().trim().toLowerCase();
+  const srvType = (srvTypeRaw ?? "fulcrum").toString().trim().toLowerCase();
+  const proxyType = (proxyTypeRaw ?? "tor").toString().trim().toLowerCase();
+
+  if (!validNetworks.includes(netType)) {
+    throw new Error("Invalid Ashigaru network type: " + netType);
+  }
+
+  if (!validServers.includes(srvType)) {
+    throw new Error("Invalid Ashigaru server type: " + srvType);
+  }
+
+  if (!validProxies.includes(proxyType)) {
+    throw new Error("Invalid Ashigaru proxy type: " + proxyType);
+  }
+
+  const ashUpdated = {
+    ...ash,
+    network: { type: (netType as any) },
+    server: { type: (srvType as any) },
+    proxy: { type: (proxyType as any) },
+  };
+  const sanitizedConfig: AshigaruConfig = {
+    ...newConfig,
+    ashigaru: ashUpdated,
+  };
+
+  const finalDeps: { [key: string]: string[] } = {};
+  if (srvType === "fulcrum") {
+    finalDeps.fulcrum = ["synced"];
+  }
+
+  const result = await compat.setConfig(effects, sanitizedConfig, finalDeps);
+  return result;
 };
