@@ -43,7 +43,8 @@ compat.setConfig completed
 **File**: `docker_entrypoint.sh`
 - Runs every time the Ashigaru container starts
 - Reads configuration from `/root/start9/config.yaml`
-- Always applies settings to `/root/.ashigaru/config` (no toggle needed)
+- Always applies server and proxy settings to `/root/.ashigaru/config`
+- Launches Ashigaru with appropriate network flag (`-n testnet4` for testnet, no flag for mainnet)
 - Sets up socat proxy for fulcrum connections
 
 ## Debugging the Configuration Process
@@ -113,12 +114,20 @@ Server type from StartOS: 'fulcrum'
 Proxy type from StartOS: 'tor'
 ```
 
+#### Bitcoin Network Configuration
+```
+=== DEBUG: Bitcoin Network Configuration ===
+→ Network will be set via command line flag: testnet
+→ Ashigaru will be launched with -n testnet4 flag
+✓ Testnet configuration applied
+```
+
 #### Electrum Server Configuration
 ```
 === DEBUG: Electrum Server Configuration ===
 → Configuring Ashigaru for Fulcrum
 Setting serverType to ELECTRUM_SERVER
-Setting electrumServer to tcp://127.0.0.1:50001
+Note: electrumServer already set by network configuration
 ✓ Fulcrum configuration applied
 ```
 
@@ -152,6 +161,14 @@ Checking if fulcrum.embassy is reachable...
 Checking local port 50001...
 ✓ Port 50001 is listening
 tcp   LISTEN  0      128            127.0.0.1:50001       0.0.0.0:*    users:(("socat",pid=123,fd=3))
+```
+
+#### Ashigaru Launch
+```
+=== END DEBUG INITIALIZATION ===
+Launching Ashigaru Terminal
+
+→ Starting Ashigaru Terminal in TESTNET mode
 ```
 
 ## Common Issues and Solutions

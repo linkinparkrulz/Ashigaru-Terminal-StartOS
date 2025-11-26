@@ -28,12 +28,6 @@ echo "Initialising Ashigaru Terminal..."
 echo
 
 
-_term() { 
-  echo "Caught SIGTERM signal!" 
-  kill -TERM "$backend_process" 2>/dev/null
-  kill -TERM "$db_process" 2>/dev/null
-  kill -TERM "$frontend_process" 2>/dev/null
-}
 
 # DEBUG: Show environment and file structure
 echo "=== DEBUG: Environment Check ==="
@@ -117,36 +111,19 @@ if [ -f /root/start9/config.yaml ]; then
       PROXY_TYPE="tor"
     fi
       
-    # Configure Bitcoin network
+    # Note: Bitcoin network is handled by passing -n testnet4 flag to Ashigaru executable
     echo "=== DEBUG: Bitcoin Network Configuration ==="
+    echo "→ Network will be set via command line flag: $NETWORK_TYPE"
     case "$NETWORK_TYPE" in
     "testnet")
-      echo "→ Configuring Ashigaru for Testnet"
-      echo "Setting network to TESTNET"
-      # Update electrum server for testnet if using fulcrum
-      if [ "$SERVER_TYPE" = "fulcrum" ]; then
-        echo "Setting testnet fulcrum server to tcp://fulcrum.embassy:50001"
-        yq e -i '
-          .networkType = "TESTNET" |
-          .electrumServer = "tcp://fulcrum.embassy:50001"' -o=json /root/.ashigaru/config
-      fi
-      echo "✓ Testnet configuration applied"
+      echo "→ Ashigaru will be launched with -n testnet4 flag"
       ;;
     "mainnet")
-      echo "→ Configuring Ashigaru for Mainnet"
-      echo "Setting network to MAINNET"
-      # Update electrum server for mainnet if using fulcrum
-      if [ "$SERVER_TYPE" = "fulcrum" ]; then
-        echo "Setting mainnet fulcrum server to tcp://fulcrum.embassy:50001"
-        yq e -i '
-          .networkType = "MAINNET" |
-          .electrumServer = "tcp://fulcrum.embassy:50001"' -o=json /root/.ashigaru/config
-      fi
-      echo "✓ Mainnet configuration applied"
+      echo "→ Ashigaru will be launched without network flag (mainnet default)"
       ;;
     *)
       echo "✗ Unknown network type '$NETWORK_TYPE', defaulting to mainnet"
-      yq e -i '.networkType = "MAINNET"' -o=json /root/.ashigaru/config
+      NETWORK_TYPE="mainnet"
       ;;
     esac
     
@@ -156,10 +133,8 @@ if [ -f /root/start9/config.yaml ]; then
     "fulcrum")
       echo "→ Configuring Ashigaru for Fulcrum"
       echo "Setting serverType to ELECTRUM_SERVER"
-      echo "Setting electrumServer to tcp://fulcrum.embassy:50001"
-      yq e -i '
-        .serverType = "ELECTRUM_SERVER" |
-        .electrumServer = "tcp://fulcrum.embassy:50001"' -o=json /root/.ashigaru/config
+      echo "Note: electrumServer already set by network configuration"
+      yq e -i '.serverType = "ELECTRUM_SERVER"' -o=json /root/.ashigaru/config
       echo "✓ Fulcrum configuration applied"
       ;;
     "public")
@@ -269,4 +244,47 @@ echo "=== END DEBUG INITIALIZATION ==="
 echo "Launching Ashigaru Terminal"
 echo
 
-exec /usr/local/bin/docker-entrypoint.sh
+
+# Determine network flag for Ashigaru
+ASHIGARU_ARGS=""
+if [ -f /root/start9/config.yaml ] && command -v yq >/dev/null 2>&1 && yq --version >/dev/null 2>&1; then
+    NETWORK_TYPE=$(yq '.network.type' /root/start9/config.yaml 2>/dev/null || echo "mainnet")
+    case "$NETWORK_TYPE" in
+    "testnet")
+        echo "→ Starting Ashigaru Terminal in TESTNET mode"
+        ASHIGARU_ARGS="-n testnet4"
+        ;;
+    "mainnet"|*)
+        echo "→ Starting Ashigaru Terminal in MAINNET mode"
+        ASHIGARU_ARGS=""
+        ;;
+    esac
+else
+    echo "→ Configuration not available, starting Ashigaru Terminal in MAINNET mode (default)"
+    ASHIGARU_ARGS=""
+fi
+
+echo "=== Ashigaru Terminal Web Interface Setup ==="
+echo "Session: ashigaru"
+echo "Web Port: 7682"
+echo "Command: /opt/ashigaru-terminal/bin/Ashigaru-terminal $ASHIGARU_ARGS"
+echo "----------------------------------------------"
+
+# Step 1: Prepare tmux environment
+echo "[STEP 1] Preparing tmux environment"
+[ -n "$TMUX" ] && tmux kill-session -t ashigaru 2>/dev/null || true
+echo "[info] Creating tmux session 'ashigaru' with interactive shell"
+tmux new-session -d -s ashigaru /bin/bash
+echo "[info] Enabling remain-on-exit for 'ashigaru'"
+tmux set-option -t ashigaru remain-on-exit on
+echo "[info] Launching app inside tmux: '/opt/ashigaru-terminal/bin/Ashigaru-terminal $ASHIGARU_ARGS'"
+tmux send-keys -t ashigaru "/opt/ashigaru-terminal/bin/Ashigaru-terminal $ASHIGARU_ARGS" C-m
+
+# Step 2: Build web terminal (ttyd) command
+echo "[STEP 2] Building web terminal (ttyd) command"
+TTYD_CMD="/usr/bin/ttyd -p 7682 tmux attach-session -t ashigaru"
+
+# Step 3: Start web terminal (ttyd) on port 7682
+echo "[STEP 3] Starting web terminal (ttyd) on port 7682"
+echo "----------------------------------------------"
+exec $TTYD_CMD

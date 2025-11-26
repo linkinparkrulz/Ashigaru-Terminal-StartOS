@@ -2,9 +2,9 @@ FROM ghcr.io/relative-strength/ashigaru-terminal-image-startos:latest
 
 USER root
 
-# Install required tools including iproute2 for the 'ip' command
+# Install required tools including iproute2 for the 'ip' command and ttyd for web terminal
 RUN apt-get update --allow-releaseinfo-change || apt-get update && \
-    apt-get install -y curl wget iproute2 && \
+    apt-get install -y curl wget iproute2 ttyd && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install yq with correct architecture mapping
